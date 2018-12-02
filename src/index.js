@@ -62,7 +62,11 @@ module.exports = function (source) {
   const AFTER_LESS_STYLE = utils.stringifyRequest(this, afterLessLoader).replace(/"/g, '')
   const TEMPLATE = utils.stringifyRequest(this, templateLoader).replace(/"/g, '')
   const BEFORE_TEMPLATE_COMPILER = utils.stringifyRequest(this, beforeTemplateCompilerLoader).replace(/"/g, '')
-
+  console.log('\n########n')
+  console.log(Object.keys(this).join(', '))
+  console.log('TEMPLATE: ', TEMPLATE)
+  console.log('BEFORE_TEMPLATE_COMPILER: ', BEFORE_TEMPLATE_COMPILER)
+  console.log('\n########n')
 
   const variableMap = this.k12vuxVariableMap || utils.getLoaderConfig(this, 'k12vuxVariableMap')
 
@@ -95,13 +99,16 @@ module.exports = function (source) {
 
   source = addScriptLoader(source, SCRIPT)
   source = addStyleLoader(source, STYLE, variables, AFTER_LESS_STYLE)
-  source = addTemplateLoader(source, TEMPLATE, BEFORE_TEMPLATE_COMPILER)
+  // source = addTemplateLoader(source, TEMPLATE, BEFORE_TEMPLATE_COMPILER)
 
   // fix style path in dev mode
   if (config.options.k12vuxDev) {
     source = source.replace(/k12vux\/src\/styles\/(.*?)/g, '../styles/$1')
   }
 
+  console.log('\n@@@@@@@@@@@@@@\n')
+  console.log(source)
+  console.log('\n@@@@@@@@@@@@@@\n')
   return source
 }
 
@@ -225,93 +232,29 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
     k12vuxConfig.options.projectRoot = projectRoot
   }
 
-  let k12vuxVersion
-  try {
-    let vuePackagePath = path.resolve(k12vuxConfig.options.projectRoot, 'node_modules/k12vux/package.json')
-    k12vuxVersion = require(vuePackagePath).version
-  } catch (e) {}
-
-  // get vue version
-  let vueVersion
-  try {
-    let vuePackagePath = path.resolve(k12vuxConfig.options.projectRoot, 'node_modules/vue/package.json')
-    vueVersion = require(vuePackagePath).version
-  } catch (e) {}
-  k12vuxConfig.options.vueVersion = vueVersion
-
-  require('./libs/report')({
-    vueVersion: vueVersion,
-    k12vuxVersion: k12vuxVersion
-  })
-
 
   // check webpack version by module.loaders
-  let isWebpack2
+  let isWebpack2 = true
 
-  if (typeof k12vuxConfig.options.isWebpack2 !== 'undefined') {
-    isWebpack2 = k12vuxConfig.options.isWebpack2
-  } else if (oldConfig.module && oldConfig.module.rules) {
-    isWebpack2 = true
-  } else if (oldConfig.module && oldConfig.module.loaders) {
-    isWebpack2 = false
-  }
-
-  if (typeof isWebpack2 === 'undefined') {
-    const compareVersions = require('compare-versions')
-    const pkg = require(path.resolve(k12vuxConfig.options.projectRoot, 'package.json'))
-    if (pkg.devDependencies.webpack) {
-      isWebpack2 = compareVersions(pkg.devDependencies.webpack.replace('^', '').replace('~', ''), '2.0.0') > -1
-    } else {
-      isWebpack2 = true
-    }
-  }
-
-  if (!isWebpack2) {
-    if (!config.vue) {
-      config.vue = {
-        loaders: {
-          i18n: 'k12vux-loader/src/noop-loader.js'
-        }
-      }
-    } else {
-      if (!config.vue.loaders) {
-        config.vue.loaders = {}
-      }
-      config.vue.loaders.i18n = 'k12vux-loader/src/noop-loader.js'
-    }
-  }
-
-  let loaderKey = isWebpack2 ? 'rules' : 'loaders'
+  let loaderKey = 'rules'
 
   config.module[loaderKey] = config.module[loaderKey] || []
-
   const useVuxUI = hasPlugin('k12vux-ui', k12vuxConfig.plugins)
-  k12vuxConfig.options.useVuxUI = true
+  k12vuxConfig.options.useVuxUI = useVuxUI
 
   /**
    * ======== set k12vux options ========
    */
   // for webpack@2.x, options should be provided with LoaderOptionsPlugin
-  if (isWebpack2) {
-    if (!config.plugins) {
-      config.plugins = []
+  // delete old config for webpack2
+  config.plugins.forEach(function (plugin, index) {
+    if (plugin.constructor.name === 'LoaderOptionsPlugin' && plugin.options.k12vux) {
+      config.plugins.splice(index, 1)
     }
-    // delete old config for webpack2
-    config.plugins.forEach(function (plugin, index) {
-      if (plugin.constructor.name === 'LoaderOptionsPlugin' && plugin.options.k12vux) {
-        config.plugins.splice(index, 1)
-      }
-    })
-    config.plugins.push(new webpack.LoaderOptionsPlugin({
-      k12vux: k12vuxConfig
-    }))
-  } else { // for webpack@1.x, merge directly
-
-    config = merge(config, {
-      k12vux: k12vuxConfig
-    })
-
-  }
+  })
+  config.plugins.push(new webpack.LoaderOptionsPlugin({
+    k12vux: k12vuxConfig
+  }))
 
   if (hasPlugin('inline-manifest', k12vuxConfig.plugins)) {
     var InlineManifestWebpackPlugin = require('inline-manifest-webpack-plugin')
@@ -332,15 +275,9 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
       mapPath = path.resolve(k12vuxConfig.options.projectRoot, 'src/components/map.json')
     }
     const maps = require(mapPath)
-    if (isWebpack2) {
-      config.plugins.push(new webpack.LoaderOptionsPlugin({
-        k12vuxMaps: maps
-      }))
-    } else {
-      config = merge(config, {
-        k12vuxMaps: maps
-      })
-    }
+    config.plugins.push(new webpack.LoaderOptionsPlugin({
+      k12vuxMaps: maps
+    }))
   }
 
   // get less variable alias
@@ -350,9 +287,7 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
       variablePath = path.resolve(k12vuxConfig.options.projectRoot, 'src/styles/variable.less')
     }
     // parse alias
-
     const rs = {}
-
     try {
       const content = fs.readFileSync(variablePath, 'utf-8').split('\n').filter(line => /\/\/\salias/.test(line)).map(line => {
         const value = line.split('// alias ')[1].replace(/\s+/g, '').trim()
@@ -363,15 +298,9 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
       })
     } catch (e) {}
 
-    if (isWebpack2) {
-      config.plugins.push(new webpack.LoaderOptionsPlugin({
-        k12vuxVariableMap: rs
-      }))
-    } else {
-      config = merge(config, {
-        k12vuxVariableMap: rs
-      })
-    }
+    config.plugins.push(new webpack.LoaderOptionsPlugin({
+      k12vuxVariableMap: rs
+    }))
   }
 
   /**
@@ -385,16 +314,9 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
     try {
       const k12vuxLocalesContent = fs.readFileSync(k12vuxLocalesPath, 'utf-8')
       let k12vuxLocalesJson = yaml.safeLoad(k12vuxLocalesContent)
-
-      if (isWebpack2) {
-        config.plugins.push(new webpack.LoaderOptionsPlugin({
-          k12vuxLocales: k12vuxLocalesJson
-        }))
-      } else {
-        config = merge(config, {
-          k12vuxLocales: k12vuxLocalesJson
-        })
-      }
+      config.plugins.push(new webpack.LoaderOptionsPlugin({
+        k12vuxLocales: k12vuxLocalesJson
+      }))
     } catch (e) {}
   }
 
@@ -600,39 +522,8 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
 }
 
 const _addScriptLoader = function (content, SCRIPT) {
-  // get script type
   if (/type=script/.test(content)) {
-    // split loaders
-    var loaders = content.split('!')
-    loaders = loaders.map(function (item) {
-      if (/type=script/.test(item)) {
-        item = SCRIPT + '!' + item
-      }
-      return item
-    }).join('!')
-    content = loaders
-  } else if (/require\("!!babel-loader/.test(content)) {
-    content = content.replace('!!babel-loader!', `!!babel-loader!${SCRIPT}!`)
-  } else if (/import\s__vue_script__\sfrom\s"!!babel\-loader!\.\/(.*?)"/.test(content)) {
-    let loaders = content.split('!')
-    loaders = loaders.map(function (item) {
-      if (item === 'babel-loader') {
-        item += '!' + SCRIPT
-      }
-      return item
-    })
-    content = loaders.join('!')
-  }
-
-  if (content.indexOf('export * from') !== -1) {
-    let loaders = content.split('!')
-    loaders = loaders.map(function (item) {
-      if (item === 'babel-loader') {
-        item += '!' + SCRIPT
-      }
-      return item
-    })
-    content = loaders.join('!')
+    content = content.replace('&"', '&!' + SCRIPT + '"')
   }
   return content
 }
@@ -642,13 +533,8 @@ function addScriptLoader(source, SCRIPT) {
   // escape \" first so the following regexp works fine
   rs = rs.replace(/\\"/g, '$VUX$')
 
-  if (rs.indexOf('import __vue_script__ from') === -1) {
-    rs = rs.replace(/require\("(.*)"\)/g, function (content) {
-      return _addScriptLoader(content, SCRIPT)
-    })
-  } else {
-    // for vue-loader@13
-    rs = rs.replace(/import\s__vue_script__\sfrom\s"(.*?)"/g, function (content) {
+  if (rs.indexOf('import script from') !== -1) {
+    rs = rs.replace(/import\sscript\sfrom\s"(.*?)"/g, function (content) {
       return _addScriptLoader(content, SCRIPT)
     })
   }
@@ -665,20 +551,8 @@ function addScriptLoader(source, SCRIPT) {
 }
 
 const _addTemplateLoader = function (content, TEMPLATE, BEFORE_TEMPLATE_COMPILER) {
-  // get script type
   if (/type=template/.test(content)) {
-    // split loaders
-    var loaders = content.split('!')
-    loaders = loaders.map(function (item) {
-      if (/type=template/.test(item)) {
-        item = TEMPLATE + '!' + item
-      }
-      if (item.indexOf('template-compiler/index') !== -1) {
-        item = item + '!' + BEFORE_TEMPLATE_COMPILER
-      }
-      return item
-    }).join('!')
-    content = loaders
+    content = content.replace('&"', '&!' + TEMPLATE + '"')
   }
   return content
 }
@@ -686,26 +560,9 @@ const _addTemplateLoader = function (content, TEMPLATE, BEFORE_TEMPLATE_COMPILER
 function addTemplateLoader(source, TEMPLATE, BEFORE_TEMPLATE_COMPILER) {
   source = source.replace(/\\"/g, '__VUX__')
   var rs = source
-  let doParse = false
 
-  if (rs.indexOf('import {render as __vue_render__, staticRenderFns as __vue_static_render_fns__} from') !== -1) {
-    // for vue-loader@14
-    rs = rs.replace(/import\s{render\sas\s__vue_render__,\sstaticRenderFns\sas\s__vue_static_render_fns__}\sfrom\s"(.*?)"/g, function (content) {
-      return _addTemplateLoader(content, TEMPLATE, BEFORE_TEMPLATE_COMPILER)
-    })
-    doParse = true
-  }
-
-  if (!doParse && rs.indexOf('import __vue_template__ from') !== -1) {
-    // for vue-loader@13
-    rs = rs.replace(/import\s__vue_template__\sfrom\s"(.*?)"/g, function (content) {
-      return _addTemplateLoader(content, TEMPLATE, BEFORE_TEMPLATE_COMPILER)
-    })
-    doParse = true
-  }
-
-  if (!doParse && rs.indexOf('import __vue_template__ from') === -1) {
-    rs = rs.replace(/require\("(.*)"\)/g, function (content) {
+  if (rs.indexOf('import { render, staticRenderFns } from') !== -1) {
+    rs = rs.replace(/import\s{\srender,\sstaticRenderFns\s}\sfrom\s"(.*?)"/g, function (content) {
       return _addTemplateLoader(content, TEMPLATE, BEFORE_TEMPLATE_COMPILER)
     })
   }
