@@ -220,6 +220,7 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
       mapPath = path.resolve(k12vuxConfig.options.projectRoot, 'src/components/map.json')
     }
     const maps = require(mapPath)
+    global.k12vuxMaps = maps
     config.plugins.push(new webpack.LoaderOptionsPlugin({
       k12vuxMaps: maps
     }))
@@ -271,52 +272,52 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
   /**
    * ======== append k12vux-loader ========
    */
-  let loaderString = k12vuxConfig.options.loaderString || 'k12vux-loader!vue-loader'
-  const rewriteConfig = k12vuxConfig.options.rewriteLoaderString
-  if (typeof rewriteConfig === 'undefined' || rewriteConfig === true) {
-    let hasAppendVuxLoader = false
-    config.module.rules.forEach(function (rule) {
-      let hasVueLoader = rule.use && _.isArray(rule.use) && rule.use.length && rule.use.filter(function(one) {
-        return one.loader === 'vue-loader'
-      }).length === 1
-      if (rule.use && typeof rule.use === 'object' && rule.use.loader === 'vue-loader') {
-        hasVueLoader = true
-      }
-      if (rule.loader === 'vue' || rule.loader === 'vue-loader' || hasVueLoader) {
-        if (!rule.options && !rule.query && !hasVueLoader) {
-          rule.loader = loaderString
-        } else if ((rule.options || rule.query) && !hasVueLoader) {
-          delete rule.loader
-          rule.use = [
-         'k12vux-loader',
-            {
-              loader: 'vue-loader',
-              options: rule.options,
-              query: rule.query
-         }]
-          delete rule.options
-          delete rule.query
-        } else if (hasVueLoader) {
-          if (Array.isArray(rule.use)) {
-            rule.use.unshift('k12vux-loader')
-          } else if (typeof rule.use === 'object' && rule.use.loader === 'vue-loader') {
-            let oldRule = rule.use
-            rule.use = [
-              'k12vux-loader',
-              oldRule
-            ]
-          }
-        }
-        hasAppendVuxLoader = true
-      }
-    })
-    if (!hasAppendVuxLoader) {
-      config.module.rules.push({
-        test: /\.vue$/,
-        loader: loaderString
-      })
-    }
-  }
+  // let loaderString = k12vuxConfig.options.loaderString || 'k12vux-loader!vue-loader'
+  // const rewriteConfig = k12vuxConfig.options.rewriteLoaderString
+  // if (typeof rewriteConfig === 'undefined' || rewriteConfig === true) {
+  //   let hasAppendVuxLoader = false
+  //   config.module.rules.forEach(function (rule) {
+  //     let hasVueLoader = rule.use && _.isArray(rule.use) && rule.use.length && rule.use.filter(function(one) {
+  //       return one.loader === 'vue-loader'
+  //     }).length === 1
+  //     if (rule.use && typeof rule.use === 'object' && rule.use.loader === 'vue-loader') {
+  //       hasVueLoader = true
+  //     }
+  //     if (rule.loader === 'vue' || rule.loader === 'vue-loader' || hasVueLoader) {
+  //       if (!rule.options && !rule.query && !hasVueLoader) {
+  //         rule.loader = loaderString
+  //       } else if ((rule.options || rule.query) && !hasVueLoader) {
+  //         delete rule.loader
+  //         rule.use = [
+  //        'k12vux-loader',
+  //           {
+  //             loader: 'vue-loader',
+  //             options: rule.options,
+  //             query: rule.query
+  //        }]
+  //         delete rule.options
+  //         delete rule.query
+  //       } else if (hasVueLoader) {
+  //         if (Array.isArray(rule.use)) {
+  //           rule.use.unshift('k12vux-loader')
+  //         } else if (typeof rule.use === 'object' && rule.use.loader === 'vue-loader') {
+  //           let oldRule = rule.use
+  //           rule.use = [
+  //             'k12vux-loader',
+  //             oldRule
+  //           ]
+  //         }
+  //       }
+  //       hasAppendVuxLoader = true
+  //     }
+  //   })
+  //   if (!hasAppendVuxLoader) {
+  //     config.module.rules.push({
+  //       test: /\.vue$/,
+  //       loader: loaderString
+  //     })
+  //   }
+  // }
 
   /**
    * ======== append js-loader for ts-loader ========
@@ -350,40 +351,40 @@ module.exports.merge = function (oldConfig, k12vuxConfig) {
   /**
    * ======== append js-loader ========
    */
-  config.module.rules.forEach(function (rule) {
-    if (rule.use && (rule.use[0] === 'babel-loader' || (typeof rule.use[0] === 'object' && rule.use[0].loader === 'babel-loader'))) {
-      rule.use.push(jsLoader)
-    } else {
-      if (rule.loader === 'babel' || rule.loader === 'babel-loader' || (/babel/.test(rule.loader) && !/!/.test(rule.loader))) {
-        if (rule.query || rule.options) {
-          let options
-          if(rule.options){
-            options = rule.options
-            delete rule.options
-          }else{
-            options = rule.query
-            delete rule.query
-          }
-          rule.use = [{
-            loader: 'babel-loader',
-            options: options
-          }, jsLoader]
-          delete rule.loader
-        } else {
-          rule.loader = 'babel-loader!' + jsLoader
-        }
-      }
-    }
-  })
+  // config.module.rules.forEach(function (rule) {
+  //   if (rule.use && (rule.use[0] === 'babel-loader' || (typeof rule.use[0] === 'object' && rule.use[0].loader === 'babel-loader'))) {
+  //     rule.use.push(jsLoader)
+  //   } else {
+  //     if (rule.loader === 'babel' || rule.loader === 'babel-loader' || (/babel/.test(rule.loader) && !/!/.test(rule.loader))) {
+  //       if (rule.query || rule.options) {
+  //         let options
+  //         if(rule.options){
+  //           options = rule.options
+  //           delete rule.options
+  //         }else{
+  //           options = rule.query
+  //           delete rule.query
+  //         }
+  //         rule.use = [{
+  //           loader: 'babel-loader',
+  //           options: options
+  //         }, jsLoader]
+  //         delete rule.loader
+  //       } else {
+  //         rule.loader = 'babel-loader!' + jsLoader
+  //       }
+  //     }
+  //   }
+  // })
 
   /**
    * ======== set compiling k12vux js source ========
    */
-  if (hasPlugin('k12vux-ui', k12vuxConfig.plugins)) {
-    if (typeof k12vuxConfig.options.k12vuxSetBabel === 'undefined' || k12vuxConfig.options.k12vuxSetBabel === true) {
-      config.module.rules.push(getBabelLoader(k12vuxConfig.options.projectRoot, 'k12vux', k12vuxConfig.options.k12vuxDev))
-    }
-  }
+  // if (hasPlugin('k12vux-ui', k12vuxConfig.plugins)) {
+  //   if (typeof k12vuxConfig.options.k12vuxSetBabel === 'undefined' || k12vuxConfig.options.k12vuxSetBabel === true) {
+  //     config.module.rules.push(getBabelLoader(k12vuxConfig.options.projectRoot, 'k12vux', k12vuxConfig.options.k12vuxDev))
+  //   }
+  // }
 
   // set done plugin
   if (hasPlugin('build-done-callback', k12vuxConfig.plugins)) {
